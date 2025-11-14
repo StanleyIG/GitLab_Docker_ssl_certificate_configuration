@@ -22,7 +22,7 @@ services:
     environment:
       GITLAB_OMNIBUS_CONFIG: |
         # Basic configuration
-        external_url 'https://gitlab.example.com:8443'
+        external_url 'https://gitlab.example.com'
         
         # SSL configuration
         nginx['listen_port'] = 443
@@ -36,7 +36,7 @@ services:
         gitlab_kas['internal_api_listen_address'] = '0.0.0.0:8154'
         
         # Internal API configuration - ВАЖНО!
-        # gitlab_rails['internal_api_url'] = 'https://gitlab.example.com:8443'
+        # gitlab_rails['internal_api_url'] = 'https://gitlab.example.com'
         
         # GitLab settings
         gitlab_rails['gitlab_host'] = "gitlab.example.com"
