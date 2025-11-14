@@ -1,0 +1,113 @@
+name: "gitlab"
+services:
+  # This is GITLAB Server instance
+  gitlab:
+    container_name: gitlab
+    image: "gitlab/gitlab-ce:18.3.2-ce.0"
+    restart: unless-stopped
+    hostname: "gitlab.example.com"
+    extra_hosts:
+      - "gitlab.example.com:172.20.0.10"
+      - "maildev.example.ru:172.20.0.5"
+      - "registry.example.com:172.20.0.10"
+    networks:
+      net:
+        ipv4_address: 172.20.0.10
+    healthcheck:
+      test: ["CMD", "/usr/local/sbin/healthcheck"]
+      interval: 15m
+      timeout: 100s
+      retries: 3
+      start_period: 15m
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        # Basic configuration
+        external_url 'https://gitlab.example.com:8443'
+        
+        # SSL configuration
+        nginx['listen_port'] = 443
+        nginx['listen_https'] = true
+        nginx['ssl_certificate'] = "/etc/gitlab/ssl/gitlab.example.com.crt"
+        nginx['ssl_certificate_key'] = "/etc/gitlab/ssl/gitlab.example.com.key"
+        
+        # KAS (Kubernetes Agent Server) configuration - ВАЖНО!
+        gitlab_kas['enable'] = false
+        gitlab_kas['listen_address'] = '0.0.0.0:8153'
+        gitlab_kas['internal_api_listen_address'] = '0.0.0.0:8154'
+        
+        # Internal API configuration - ВАЖНО!
+        # gitlab_rails['internal_api_url'] = 'https://gitlab.example.com:8443'
+        
+        # GitLab settings
+        gitlab_rails['gitlab_host'] = "gitlab.example.com"
+        gitlab_rails['gitlab_port'] = 443
+        gitlab_rails['gitlab_https'] = true
+        
+        # SMTP configuration
+        gitlab_rails['smtp_enable'] = true
+        gitlab_rails['smtp_address'] = "maildev.example.ru"
+        gitlab_rails['smtp_openssl_verify_mode'] = 'none'
+        gitlab_rails['smtp_port'] = 1025
+        gitlab_rails['gitlab_shell_ssh_port'] = 22
+        
+        # Security - disable letsencrypt
+        letsencrypt['enable'] = false
+        
+        # Performance
+        puma['worker_processes'] = 2
+    ports:
+      - "443:443"
+      - "2222:22"
+      - "80:80"
+      # - "8153:8153"  # KAS port - ДОБАВЬТЕ ЭТОТ ПОРТ!
+    volumes:
+      - ./gitlab/ssl:/etc/gitlab/ssl
+      - "config:/etc/gitlab"
+      - "logs:/var/log/gitlab"
+      - "data:/var/opt/gitlab"
+    shm_size: "256m"
+  
+  # This is RUNNER
+  gitlab-runner:
+    container_name: gitlab-runner
+    image: "gitlab/gitlab-runner:v18.3.1"
+    restart: unless-stopped
+    extra_hosts:
+      - "gitlab.example.com:172.20.0.10"
+      - "registry.example.com:172.20.0.10"
+    volumes:
+      - "runner_conf:/etc/gitlab-runner"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    networks:
+      net:
+        ipv4_address: 172.20.0.11
+    depends_on:
+      - gitlab
+  
+  # MAIL
+  maildev:
+    container_name: maildev
+    image: maildev/maildev:2.2.1
+    hostname: "maildev.example.ru"
+    restart: unless-stopped
+    extra_hosts:
+      - "gitlab.example.com:172.20.0.10"
+    networks:
+      net:
+        ipv4_address: 172.20.0.5
+    ports:
+      - 1080:1080 # maildev - web application
+      - 1025:1025 # will use 'mail:1025' to send emails
+
+# ALL options(network + volume)
+networks:
+  net:
+    ipam:
+      driver: default
+      config:
+        - subnet: "172.20.0.0/16"
+volumes:
+  config:
+  logs:
+  data:
+  runner_conf:

@@ -1,0 +1,54 @@
+1. создать директории:
+mkdir -p my_gitlab/gitlab/ssl
+
+2. Создать сертификат и ключ:
+cd ~/my_gitlab/gitlab/ssl
+
+Сгенерировать новый самоподписанный сертификат
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout gitlab.example.com.key \
+  -out gitlab.example.com.crt \
+  -subj "/C=RU/ST=Moscow/L=Moscow/O=Company/CN=gitlab.example.com" \
+  -addext "subjectAltName=DNS:gitlab.example.com,DNS:registry.example.com"
+
+Установить правильные права
+chmod 644 gitlab.example.com.crt
+chmod 600 gitlab.example.com.key
+
+3. Установка сертификата в Windows
+Сертификат нужно добавить в доверенные корневые центры сертификации Windows.
+
+скопировать сертификат на Windows машину
+scp master@192.168.0.50:~/my_gitlab/gitlab/ssl/gitlab.example.com.crt C:\temp\
+
+В Windows:
+открыть certlm.msc
+перейти в -> Доверенные центры сертификации -> сертификаты
+импортировать gitlab.example.com.crt
+
+4. Проверка доступности
+Из Windows PowerShell:
+
+Проверка HTTPS
+Invoke-WebRequest -Uri "https://gitlab.example.com" -UseBasicParsing
+
+Проверка сертификата
+openssl s_client -connect gitlab.example.com -showcerts
+
+Для работы с GitLab по https (git clone, git pull/push и т.д.)
+5. В виртуалке:
+На ВМ скопировать сертификат в доступное место
+docker exec gitlab cat /etc/gitlab/ssl/gitlab.example.com.crt > /tmp/gitlab.crt
+
+6. Перенесите сертификат на Windows:
+в Windows
+scp master@192.168.0.50:/tmp/gitlab.crt C:\temp\gitlab.crt
+В Windows:
+открыть certlm.msc
+перейти в -> Доверенные центры сертификации -> сертификаты
+Импортировать C:\temp\gitlab.crt
+
+7. Настройка сертификата только для конкретного домена "gitlab.example.com".
+git config --global http.https://gitlab.example.com.sslCAInfo "C:\temp\gitlab.crt"
+
+Можно пользоваться GitLab во внутренней сети по HTTPS
